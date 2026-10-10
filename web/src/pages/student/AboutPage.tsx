@@ -38,12 +38,12 @@ export const AboutPage: React.FC = () => {
             <span>Coaching, Reimagined. Redefined.</span>
           </div>
 
-          {/* <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight">
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight">
             Elevating the Mentor & <br className="hidden sm:inline" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-300 via-cyan-200 to-blue-300">
               Student Learning Experience
             </span>
-          </h1> */}
+          </h1>
 
           <p className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed font-medium">
             CoachingBuddy is India’s premier discovery, comparison, and direct admission platform for coaching institutes, tuition centers, competitive exam academies, and hobby classes.
