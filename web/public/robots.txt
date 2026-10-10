@@ -1,0 +1,36 @@
+User-agent: *
+Allow: /
+
+# Public discovery pages
+Allow: /explore
+Allow: /category/
+Allow: /institute/
+Allow: /coaching-institutes/
+Allow: /about
+Allow: /contact-support
+Allow: /privacy-policy
+Allow: /terms
+
+# Private / account / merchant application areas
+Disallow: /student/login
+Disallow: /student/verify-otp
+Disallow: /student/complete-profile
+Disallow: /student/profile
+Disallow: /student/saved
+Disallow: /student/bookings
+Disallow: /login
+Disallow: /dashboard
+Disallow: /courses
+Disallow: /bookings
+Disallow: /media
+Disallow: /offers
+Disallow: /settings
+Disallow: /seo-admin
+Disallow: /onboard
+Disallow: /success
+Disallow: /design-system
+
+# Internal search results should not be a primary indexing surface.
+Disallow: /search
+
+Sitemap: https://coachingbuddy.co.in/sitemap.xml

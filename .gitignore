@@ -1,0 +1,86 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.next/
+web/.next/
+
+# Native build outputs
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+ios/build/
+
+# APK / AAB
+*.apk
+*.aab
+
+# Android signing / keystore
+# *.jks
+# *.keystore
+# *.keystore.properties
+
+# Android signing keys
+*.pem
+*.p8
+*.p12
+*.key
+*.der
+*.mobileprovision
+
+# Gradle
+.gradle/
+gradle-app.setting
+gradle-app.settings
+gradle-project-settings/
+
+# Metro
+.metro-health-check*
+.metro/
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Logs
+*.log
+
+# macOS
+.DS_Store
+
+# Local environment files
+.env
+.env.*
+!.env.example
+*.local
+
+# TypeScript
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS / editor
+*.swp
+*.swo
+
+# Expo / EAS local credentials
+.eas/
+eas.json.local
+
+# Firebase / Google credentials
+
+# App example / local test
+app-example/

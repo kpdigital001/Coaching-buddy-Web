@@ -1,0 +1,21 @@
+// Theme Colors mirroring mobile COLORS object
+export const COLORS = {
+  primary: "#006EFF",
+  primaryLight: "#4A90FF",
+  primaryDark: "#0056CC",
+  background: "#F8FAFC",
+  white: "#FFFFFF",
+  text: "#1E293B",
+  textSecondary: "#64748B",
+  textLight: "#94A3B8",
+  border: "#E2E8F0",
+  success: "#10B981",
+  error: "#EF4444",
+  warning: "#F59E0B",
+  gradient: ["#006EFF", "#4A90FF"] as const,
+  inactiveGradient: ["#C7D3E0", "#E0E7EF"] as const,
+  cardShadow: "rgba(0, 110, 255, 0.1)",
+  modalOverlay: "rgba(0, 0, 0, 0.5)",
+  successLight: "#d1fae5",
+  errorLight: "#fee2e2",
+};

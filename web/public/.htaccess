@@ -1,0 +1,14 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Keep API requests out of the SPA fallback.
+  RewriteCond %{REQUEST_URI} !^/api(?:/|$) [NC]
+
+  # Serve existing files/directories normally.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  # React Router fallback for SEO-friendly deep URLs.
+  RewriteRule ^ index.html [L]
+</IfModule>
