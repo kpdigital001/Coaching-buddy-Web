@@ -2,13 +2,23 @@
   RewriteEngine On
   RewriteBase /
 
-  # Keep API requests out of the SPA fallback.
-  RewriteCond %{REQUEST_URI} !^/api(?:/|$) [NC]
+  # Original application's API and SEO PHP publisher are independent.
+  RewriteRule ^api(/|$) - [L,NC]
+  RewriteRule ^seo-publisher(/|$) - [L,NC]
 
-  # Serve existing files/directories normally.
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
+  # Backward-compatible public config always reflects the current published version.
+  RewriteRule ^seo-overrides\.json$ seo-publisher/published.php [L,NC]
 
-  # React Router fallback for SEO-friendly deep URLs.
-  RewriteRule ^ index.html [L]
+  # Existing real assets continue to serve directly.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Initial HTML SEO metadata + original React Router client app.
+  RewriteRule ^$ seo-entry.php [L]
+  RewriteRule ^ seo-entry.php [L]
 </IfModule>
+DirectoryIndex seo-entry.php index.html
+<FilesMatch "^(\.env|composer\.json|composer\.lock)$">
+  Require all denied
+</FilesMatch>

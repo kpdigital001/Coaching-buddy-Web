@@ -20,10 +20,11 @@ export interface SeoConfig {
   version: 1;
   generatedAt: string;
   entries: Record<string, SeoOverride>;
+  revision?: number;
 }
 
 export const SEO_DRAFT_STORAGE_KEY = 'COACHING_BUDDY_SEO_DRAFT_CONFIG_V1';
-export const SEO_PUBLISHED_CONFIG_PATH = '/seo-overrides.json';
+export const SEO_PUBLISHED_CONFIG_PATH = '/seo-publisher/api.php?action=published';
 
 export function createEmptySeoConfig(): SeoConfig {
   return {
@@ -128,7 +129,8 @@ export async function fetchPublishedSeoConfig(): Promise<SeoConfig> {
   try {
     const response = await fetch(SEO_PUBLISHED_CONFIG_PATH, { cache: 'no-store' });
     if (!response.ok) return createEmptySeoConfig();
-    const parsed = (await response.json()) as SeoConfig;
+    const result = (await response.json()) as { config?: SeoConfig };
+    const parsed = result.config as SeoConfig;
     if (parsed?.version === 1 && parsed.entries && typeof parsed.entries === 'object') {
       return parsed;
     }

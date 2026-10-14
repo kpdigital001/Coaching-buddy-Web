@@ -1,0 +1,5 @@
+config.php
+data/*.json
+!data/live.json
+data/*.lock
+data/*.tmp

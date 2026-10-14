@@ -1,13 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Eye, EyeOff, KeyRound, Mail, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import {
-  clearSeoAdminSession,
-  isSeoAdminIdentityAllowed,
-  isSeoAdminSessionUnlocked,
-  unlockSeoAdminSession,
-  verifySeoAdminPassword,
-} from '../../lib/seoAdminAccess';
+import { getSeoAdminSession, seoAdminLogin } from '../../lib/seoAdminAccess';
 
 /**
  * Standalone SEO Admin login.
@@ -22,9 +16,7 @@ export const SeoAdminPasswordPage: React.FC = () => {
   const [isChecking, setIsChecking] = useState(false);
 
   useEffect(() => {
-    if (isSeoAdminSessionUnlocked()) {
-      navigate('/seo-admin', { replace: true });
-    }
+    getSeoAdminSession().then((ok) => { if (ok) navigate('/seo-admin', { replace: true }); }).catch(() => {});
   }, [navigate]);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -39,18 +31,10 @@ export const SeoAdminPasswordPage: React.FC = () => {
 
     setIsChecking(true);
     try {
-      const allowedEmail = isSeoAdminIdentityAllowed(normalizedEmail);
-      const validPassword = await verifySeoAdminPassword(password);
-
-      // Keep the message generic so the page does not reveal which credential failed.
-      if (!allowedEmail || !validPassword) {
-        clearSeoAdminSession();
-        setError('Invalid SEO Admin email or password.');
-        return;
-      }
-
-      unlockSeoAdminSession(normalizedEmail);
+      await seoAdminLogin(normalizedEmail, password);
       navigate('/seo-admin', { replace: true });
+    } catch (issue) {
+      setError(issue instanceof Error ? issue.message : 'SEO Admin login failed.');
     } finally {
       setIsChecking(false);
     }

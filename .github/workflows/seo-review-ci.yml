@@ -1,0 +1,40 @@
+name: SEO Review Checks (no deploy)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feature/seo-live-publishing-review]
+
+permissions:
+  contents: read
+
+jobs:
+  seo-review:
+    name: React build and PHP lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install and build frontend
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+      - name: Validate PHP files
+        run: |
+          php --version
+          find coachingbuddy-seo-private web/public/seo-publisher -type f -name '*.php' -print -exec php -l {} \;
+          php -l web/public/seo-entry.php
+      - name: Confirm private runtime data and passwords are not committed
+        run: |
+          test ! -e coachingbuddy-seo-private/config.php
+          test ! -e coachingbuddy-seo-private/data/live.json
+          test ! -e coachingbuddy-seo-private/data/history.json
+          ! grep -Eq 'FALLBACK_SEO_ADMIN_PASSWORD_SHA256|VITE_SEO_ADMIN_PASSWORD_SHA256' web/src/lib/seoAdminAccess.ts
