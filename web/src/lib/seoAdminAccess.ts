@@ -54,3 +54,7 @@ export async function seoAdminLogout(): Promise<void> {
     sessionStorage.removeItem('COACHING_BUDDY_SEO_ADMIN_SESSION_V1');
   }
 }
+/** Legacy institute login still imports this helper; preserve its SEO-only return route. */
+export function isSeoAdminIdentityAllowed(email?: string | null, _role?: string | null): boolean {
+  return String(email || '').trim().toLowerCase() === 'seo@coachingbuddy.co.in';
+}
