@@ -1,0 +1,62 @@
+# CoachingBuddy — Nginx / PHP-FPM SEO Publishing Locations
+# REVIEW TEMPLATE ONLY. Do not include or paste blindly.
+#
+# Target indicated by existing GitHub Actions:
+#   /home/coachingbuddy/htdocs/coachingbuddy.co.in/
+#
+# Copy these location blocks INSIDE the actual HTTPS server {} for coachingbuddy.co.in.
+# Confirm the real Nginx root, PHP-FPM socket, upstream /api proxy, and owner first.
+# The PHP-FPM socket below is ONLY AN EXAMPLE; replace with the actual pool/socket.
+# Do not change the existing /api upstream or authentication proxy.
+# Keep existing working static-file, TLS, redirect and asset cache rules.
+#
+# PRIVATE STORAGE MUST NOT be in this document root.
+# For this code's existing relative bootstrap paths, provision:
+#   /home/coachingbuddy/htdocs/coachingbuddy-seo-private/
+# as a SIBLING of the site's configured document root.
+# Verify this sibling is not reachable through ANY other virtual host or alias.
+# If it is, relocate and adjust both PHP bootstrap references first.
+#
+# The old static /seo-overrides.json file may still exist after build.
+# This exact location must take priority and route to published.php dynamically.
+
+location = /seo-overrides.json {
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root/seo-publisher/published.php;
+    fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+    add_header Cache-Control "no-store" always;
+}
+
+location = /seo-publisher/api.php {
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root/seo-publisher/api.php;
+    fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+    add_header Cache-Control "no-store" always;
+}
+
+# Frontend currently calls the API's "published" action for published config.
+# Leave other files in /seo-publisher inaccessible.
+location ^~ /seo-publisher/ {
+    return 404;
+}
+
+# Internal entry to add SEO tags to initial HTML before client React boots.
+location = /seo-entry.php {
+    internal;
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root/seo-entry.php;
+    fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+}
+
+# MERGE with the existing location / (never create a second location /).
+# Preserve existing behavior for real static files, SPA navigation and /api.
+location / {
+    try_files $uri $uri/ /seo-entry.php$is_args$args;
+}
+
+# IMPORTANT:
+# 1. Exact locations above should take precedence over any generic .php handler.
+# 2. PHP endpoints must execute via PHP-FPM; never serve PHP as a static download.
+# 3. Do not deploy private config.php or data under the site root.
+# 4. Preserve existing /api location: if it uses a reverse proxy, leave it untouched.
+# 5. Use nginx -t BEFORE a controlled reload; do not restart production blind.
