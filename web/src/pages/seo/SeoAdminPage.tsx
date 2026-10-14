@@ -23,6 +23,7 @@ import {
   categorySeoKey,
   citySeoKey,
   downloadSeoConfig,
+  createEmptySeoConfig,
   instituteSeoKey,
   readSeoDraftConfig,
   removeSeoDraftEntry,
@@ -33,7 +34,8 @@ import {
   writeSeoDraftConfig,
 } from '../../lib/seoAdmin';
 import { absoluteUrl, buildCategoryPath, buildCityPath, buildInstitutePath, slugifySeo } from '../../lib/seoUrls';
-import { clearSeoAdminSession } from '../../lib/seoAdminAccess';
+import { seoAdminLogout, seoAdminRequest } from '../../lib/seoAdminAccess';
+import { resetSeoOverrideCache } from '../../hooks/useSeoOverride';
 
 const emptyEntry: SeoOverride = {
   title: '',
@@ -115,6 +117,10 @@ export const SeoAdminPage: React.FC = () => {
   const [selectedKey, setSelectedKey] = useState('');
   const [search, setSearch] = useState('');
   const [draftConfig, setDraftConfig] = useState<SeoConfig>(() => readSeoDraftConfig());
+  const [liveConfig, setLiveConfig] = useState<SeoConfig>(() => createEmptySeoConfig());
+  const [history, setHistory] = useState<Array<{ revision: number; at: string; key: string; action: string }>>([]);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [liveLoading, setLiveLoading] = useState(true);
   const [form, setForm] = useState<SeoOverride>({ ...emptyEntry });
   const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState('');
@@ -138,6 +144,26 @@ export const SeoAdminPage: React.FC = () => {
     return () => {
       active = false;
     };
+  }, []);
+
+  const refreshLive = async () => {
+    const data = await seoAdminRequest<{ config: SeoConfig; history: Array<{ revision: number; at: string; key: string; action: string }> }>('admin_state');
+    setLiveConfig(data.config);
+    setHistory(data.history || []);
+    resetSeoOverrideCache();
+  };
+
+  useEffect(() => {
+    let active = true;
+    seoAdminRequest<{ config: SeoConfig; history: Array<{ revision: number; at: string; key: string; action: string }> }>('admin_state')
+      .then((result) => {
+        if (!active) return;
+        setLiveConfig(result.config);
+        setHistory(result.history || []);
+      })
+      .catch((error) => { if (active) setNotice(`Could not load publishing server: ${error.message}`); })
+      .finally(() => { if (active) setLiveLoading(false); });
+    return () => { active = false; };
   }, []);
 
   const cities = useMemo(
@@ -225,14 +251,14 @@ export const SeoAdminPage: React.FC = () => {
       setForm({ ...emptyEntry });
       return;
     }
-    const existing = draftConfig.entries[selectedKey];
+    const existing = draftConfig.entries[selectedKey] || liveConfig.entries[selectedKey];
     setForm({
       ...emptyEntry,
       ...existing,
       index: existing?.index !== false,
       faqs: existing?.faqs || [],
     });
-  }, [selectedKey, draftConfig]);
+  }, [selectedKey, draftConfig, liveConfig]);
 
   const updateForm = <K extends keyof SeoOverride>(key: K, value: SeoOverride[K]) => {
     setForm((previous) => ({ ...previous, [key]: value }));
@@ -242,7 +268,7 @@ export const SeoAdminPage: React.FC = () => {
     if (!selectedKey) return;
     const next = saveSeoDraftEntry(selectedKey, form);
     setDraftConfig(next);
-    setNotice('SEO draft saved in this browser. Export the JSON when you are ready to publish.');
+    setNotice('Draft saved in this browser. Click Publish Live when ready.');
   };
 
   const resetCurrent = () => {
@@ -250,7 +276,55 @@ export const SeoAdminPage: React.FC = () => {
     const next = removeSeoDraftEntry(selectedKey);
     setDraftConfig(next);
     setForm({ ...emptyEntry });
-    setNotice('Custom SEO override removed. The page will use its automatic SEO values.');
+    setNotice('Local draft cleared. Published SEO is unchanged; click Remove Live SEO to remove a published override.');
+  };
+
+  const publishSelected = async () => {
+    if (!selectedKey || isPublishing) return;
+    setIsPublishing(true);
+    try {
+      const response = await seoAdminRequest<{ config: SeoConfig }>('publish', {
+        key: selectedKey, entry: form, expectedRevision: liveConfig.revision || 0,
+      });
+      setLiveConfig(response.config);
+      setDraftConfig(saveSeoDraftEntry(selectedKey, form));
+      await refreshLive();
+      setNotice('Published Live. SEO details are now saved on the Hostinger server; no JSON upload or redeploy is required.');
+    } catch (error) {
+      setNotice(`Publish failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally { setIsPublishing(false); }
+  };
+
+  const removeLive = async () => {
+    if (!selectedKey || isPublishing || !liveConfig.entries[selectedKey]) return;
+    if (!window.confirm('Remove this live SEO override? The page will return to automatic SEO.')) return;
+    setIsPublishing(true);
+    try {
+      const response = await seoAdminRequest<{ config: SeoConfig }>('remove', {
+        key: selectedKey, expectedRevision: liveConfig.revision || 0,
+      });
+      setLiveConfig(response.config);
+      setDraftConfig(removeSeoDraftEntry(selectedKey));
+      await refreshLive();
+      setNotice('Live override removed. This page now uses automatic SEO.');
+    } catch (error) { setNotice(`Remove failed: ${error instanceof Error ? error.message : 'Unknown error'}`); }
+    finally { setIsPublishing(false); }
+  };
+
+  const restoreForPage = async (revision: number) => {
+    if (!selectedKey || isPublishing) return;
+    if (!window.confirm('Restore the selected page to this previous SEO version? Other pages will not be changed.')) return;
+    setIsPublishing(true);
+    try {
+      const response = await seoAdminRequest<{ config: SeoConfig }>('restore', {
+        key: selectedKey, restoreRevision: revision, expectedRevision: liveConfig.revision || 0,
+      });
+      setLiveConfig(response.config);
+      setDraftConfig(removeSeoDraftEntry(selectedKey));
+      await refreshLive();
+      setNotice('Previous version restored live for this page.');
+    } catch (error) { setNotice(`Restore failed: ${error instanceof Error ? error.message : 'Unknown error'}`); }
+    finally { setIsPublishing(false); }
   };
 
   const addFaq = () => {
@@ -285,6 +359,7 @@ export const SeoAdminPage: React.FC = () => {
   };
 
   const publishedCount = Object.keys(draftConfig.entries || {}).length;
+  const liveCount = Object.keys(liveConfig.entries || {}).length;
   const previewTitle = form.title?.trim() || selectedOption?.autoTitle || 'Select an SEO page';
   const previewDescription = form.description?.trim() || selectedOption?.autoDescription || '';
   const previewCanonical = form.canonical?.trim() || selectedOption?.autoCanonical || 'https://coachingbuddy.co.in/';
@@ -346,9 +421,8 @@ export const SeoAdminPage: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => {
-                clearSeoAdminSession();
-                window.location.assign('/seo-admin/login');
+              onClick={async () => {
+                try { await seoAdminLogout(); } finally { window.location.assign('/seo-admin/login'); }
               }}
               className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2.5 text-xs font-bold hover:bg-slate-50"
             >
@@ -359,7 +433,7 @@ export const SeoAdminPage: React.FC = () => {
               onClick={() => downloadSeoConfig(draftConfig)}
               className="inline-flex items-center gap-2 rounded-xl bg-teal-600 text-white px-4 py-2.5 text-xs font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700"
             >
-              <Download className="w-4 h-4" /> Export Published JSON
+              <Download className="w-4 h-4" /> Download Draft Backup
             </button>
           </div>
         </div>
@@ -377,6 +451,7 @@ export const SeoAdminPage: React.FC = () => {
           <div className="rounded-2xl bg-white border border-slate-200 p-4">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Draft Overrides</p>
             <p className="mt-1 text-3xl font-black">{publishedCount}</p>
+            <p className="text-xs text-slate-500 mt-1">{liveCount} live SEO override(s)</p>
           </div>
           <div className="rounded-2xl bg-white border border-slate-200 p-4">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Detected Cities</p>
@@ -473,6 +548,7 @@ export const SeoAdminPage: React.FC = () => {
                       <p className="text-xs font-bold text-teal-600 uppercase tracking-wider">Editing</p>
                       <h2 className="text-2xl font-black mt-1">{selectedOption.label}</h2>
                       <p className="text-xs text-slate-400 mt-1 break-all">{selectedKey}</p>
+                      <p className="text-xs font-bold mt-2 text-teal-700">{liveConfig.entries[selectedKey] ? '● Live SEO published' : '○ Not published yet'}</p>
                     </div>
                     <label className="inline-flex items-center gap-3 cursor-pointer bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
                       <input
@@ -587,7 +663,7 @@ export const SeoAdminPage: React.FC = () => {
                 <section className="rounded-3xl bg-slate-900 text-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <p className="text-sm font-bold">Save this page as a draft</p>
-                    <p className="text-xs text-slate-400 mt-1">Export seo-overrides.json after all edits are complete.</p>
+                    <p className="text-xs text-slate-400 mt-1">Draft saves locally. Publish Live applies SEO changes immediately on the server.</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button
@@ -604,6 +680,19 @@ export const SeoAdminPage: React.FC = () => {
                     >
                       <Save className="w-4 h-4" /> Save Draft
                     </button>
+                    <button
+                      type="button"
+                      disabled={isPublishing || liveLoading}
+                      onClick={publishSelected}
+                      className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-black text-white hover:bg-emerald-500 disabled:opacity-60"
+                    >
+                      <UploadCloud className="w-4 h-4" /> {isPublishing ? 'Publishing…' : 'Publish Live'}
+                    </button>
+                    {liveConfig.entries[selectedKey] ? (
+                      <button type="button" disabled={isPublishing} onClick={removeLive} className="inline-flex items-center gap-2 rounded-xl bg-rose-900 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60">
+                        <Trash2 className="w-4 h-4" /> Remove Live SEO
+                      </button>
+                    ) : null}
                   </div>
                 </section>
               </>
@@ -611,12 +700,22 @@ export const SeoAdminPage: React.FC = () => {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5 flex items-start gap-3">
-          <UploadCloud className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-          <div className="text-sm text-amber-900 leading-6">
-            <strong>Publishing:</strong> this frontend package does not contain your server-side admin/database source. After editing, export
-            <strong> seo-overrides.json</strong>, replace <strong>public/seo-overrides.json</strong> in the project and deploy/build the site. Once a backend SEO endpoint is available, this same dashboard can save directly to the database.
+        <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 flex items-start gap-3">
+          <UploadCloud className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
+          <div className="text-sm text-emerald-900 leading-6">
+            <strong>One-click publishing:</strong> Select a page, edit its SEO, and choose <strong>Publish Live</strong>. The Hostinger PHP publishing API saves it immediately; no JSON upload or rebuild needed. JSON export remains an optional local backup.
           </div>
+        </section>
+        <section className="rounded-3xl bg-white border border-slate-200 p-5 space-y-3">
+          <h3 className="text-lg font-black">Previous Published Versions</h3>
+          <p className="text-xs text-slate-500">Restore one selected page without affecting the SEO settings of other pages. The latest 30 changes are retained.</p>
+          {history.filter(item => item.key === selectedKey).slice(0, 10).map(item => (
+            <div key={`${item.revision}-${item.at}`} className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 py-2 text-xs">
+              <span className="text-slate-700">Version {item.revision} · {new Date(item.at).toLocaleString()} · {item.action}</span>
+              <button type="button" disabled={isPublishing} onClick={() => restoreForPage(item.revision)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-teal-700 font-bold hover:bg-teal-50 disabled:opacity-60">Restore this page</button>
+            </div>
+          ))}
+          {!history.some(item => item.key === selectedKey) && <p className="text-xs text-slate-400">No saved publishing history for this page yet.</p>}
         </section>
       </main>
     </div>
