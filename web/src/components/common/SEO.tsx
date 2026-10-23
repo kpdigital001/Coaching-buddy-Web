@@ -5,6 +5,7 @@ export interface SEOProps {
   title?: string;
   description?: string;
   image?: string;
+  imageAlt?: string;
   url?: string;
   type?: 'website' | 'article' | 'profile';
   robots?: string;
@@ -30,6 +31,7 @@ export const SEO: React.FC<SEOProps> = ({
   title,
   description = DEFAULT_DESCRIPTION,
   image = DEFAULT_IMAGE,
+  imageAlt = 'Coaching Buddy logo',
   url,
   type = 'website',
   robots = 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
@@ -63,6 +65,7 @@ export const SEO: React.FC<SEOProps> = ({
     setMetaTag('property', 'og:title', fullTitle);
     setMetaTag('property', 'og:description', description);
     setMetaTag('property', 'og:image', image);
+    setMetaTag('property', 'og:image:alt', imageAlt);
     setMetaTag('property', 'og:url', currentUrl);
     setMetaTag('property', 'og:type', type);
     setMetaTag('property', 'og:locale', 'en_IN');
@@ -71,6 +74,7 @@ export const SEO: React.FC<SEOProps> = ({
     setMetaTag('name', 'twitter:title', fullTitle);
     setMetaTag('name', 'twitter:description', description);
     setMetaTag('name', 'twitter:image', image);
+    setMetaTag('name', 'twitter:image:alt', imageAlt);
 
     let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
     if (!canonical) {
@@ -94,7 +98,7 @@ export const SEO: React.FC<SEOProps> = ({
     } else if (script) {
       script.remove();
     }
-  }, [fullTitle, description, image, currentUrl, type, robots, structuredData]);
+  }, [fullTitle, description, image, imageAlt, currentUrl, type, robots, structuredData]);
 
   return null;
 };
