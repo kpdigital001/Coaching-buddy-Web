@@ -1,0 +1,19 @@
+name = "coachingbuddy-seo-publisher"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+# Nonsecret config; change only after verifying the original repository is the auto-deploy source.
+[vars]
+SITE_ORIGIN = "https://coachingbuddy.co.in"
+GITHUB_OWNER = "reactnativedev2026"
+GITHUB_REPO = "Coaching-buddy-Web"
+GITHUB_BRANCH = "main"
+SEO_ADMIN_EMAIL = "seo@coachingbuddy.co.in"
+
+# Approximate, per Cloudflare location; pair with WAF / Turnstile if needed.
+[[ratelimits]]
+name = "LOGIN_LIMITER"
+namespace_id = "1001"
+[ratelimits.simple]
+limit = 5
+period = 60
