@@ -15,6 +15,7 @@ import { useToast } from '../../components/common/Toast';
 import InstituteCard from '../../components/student/InstituteCard';
 import SEO from '../../components/common/SEO';
 import { buildCategoryPath, buildCityPath } from '../../lib/seoUrls';
+import { bannerImageAlt, categoryImageAlt } from '../../lib/autoSeo';
 
 export const StudentHomePage: React.FC = () => {
   const { selectedCity, savedInstituteIds, addRecentSearch, isAuthenticated } = useStudentAuth();
@@ -116,7 +117,7 @@ export const StudentHomePage: React.FC = () => {
               >
                 <img
                   src={slide.url}
-                  alt={slide.title || 'Banner'}
+                  alt={bannerImageAlt(slide.title)}
                   className="w-full h-full object-fill"
                 />
               </div>
@@ -215,7 +216,7 @@ export const StudentHomePage: React.FC = () => {
 
                 {/* Category Image Avatar */}
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden bg-teal-50/50 p-2 mb-3 group-hover:scale-110 transition-transform duration-300">
-                  <img src={category.imagePath} alt={category.name} className="w-full h-full object-contain rounded-xl" />
+                  <img src={category.imagePath} alt={categoryImageAlt(category.name)} className="w-full h-full object-contain rounded-xl" />
                 </div>
 
                 <h3 className="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-[#0d9488] transition-colors line-clamp-1">
