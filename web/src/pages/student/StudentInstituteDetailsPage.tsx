@@ -338,6 +338,7 @@ export const StudentInstituteDetailsPage: React.FC = () => {
         title={finalSeoTitle}
         description={finalSeoDescription}
         image={getImageURI(institute.images.cover?.[0] || institute.images.logo?.[0])}
+        imageAlt={institute.images.cover?.[0] ? instituteImageAlt(institute, 'cover') : instituteImageAlt(institute, 'logo')}
         url={finalCanonicalUrl}
         robots={seoOverride?.index === false ? 'noindex, follow' : undefined}
         type="profile"
