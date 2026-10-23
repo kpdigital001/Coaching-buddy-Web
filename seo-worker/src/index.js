@@ -57,6 +57,14 @@ function field(value, max) {
   if (typeof value !== "string" || value.length > max) throw new Error("Invalid or oversized SEO field");
   return value.trim();
 }
+function canonicalMatches(key, canonical) {
+  if (!canonical) return false;
+  const parts = new URL(canonical).pathname.split('/').filter(Boolean);
+  if (!parts.every((p) => /^[A-Za-z0-9_-]+$/.test(p))) return false;
+  if (key.startsWith('city:')) return parts.length === 2 && parts[0] === 'coaching-institutes' && key === 'city:' + parts[1];
+  if (key.startsWith('category:')) return parts.length === 3 && parts[0] === 'coaching-institutes' && key === 'category:' + parts[1] + ':' + parts[2];
+  return parts.length === 3 && parts[0] === 'institute' && parts[2].endsWith('--' + key.slice(10));
+}
 function cleanEntry(item, env) {
   if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("Invalid SEO entry");
   const result = {
@@ -150,6 +158,7 @@ export default {
         const { config, sha } = await githubFile(env);
         if (sha !== body.expectedSha) return reply({ error: "Newer published changes exist. Refresh before publishing." }, 409, cors);
         const item = cleanEntry(body.entry, env);
+        if (!canonicalMatches(key, item.canonical)) return reply({ error: "Canonical URL does not match this SEO page." }, 400, cors);
         config.entries[key] = item;
         config.generatedAt = new Date().toISOString();
         return commitGitHub(env, config, sha, key);
@@ -159,7 +168,11 @@ export default {
         if (!validKey(body.key) || typeof body.expectedSha !== "string") return reply({ error: "Invalid remove request" }, 400, cors);
         const { config, sha } = await githubFile(env);
         if (sha !== body.expectedSha) return reply({ error: "Newer published changes exist. Refresh before removing." }, 409, cors);
-        delete config.entries[body.key];
+        // Keep a canonical-only tombstone so old static HTML is replaced on the next
+        // deploy even when the VPS rsync job does not use --delete.
+        const old = config.entries[body.key];
+        if (!old?.canonical) return reply({ error: "No published canonical to remove." }, 400, cors);
+        config.entries[body.key] = { canonical: old.canonical, index: true, faqs: [], removed: true, updatedAt: new Date().toISOString() };
         config.generatedAt = new Date().toISOString();
         return commitGitHub(env, config, sha, body.key);
       }
