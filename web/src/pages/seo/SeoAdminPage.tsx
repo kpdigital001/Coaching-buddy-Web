@@ -33,7 +33,7 @@ import {
   writeSeoDraftConfig,
 } from '../../lib/seoAdmin';
 import { absoluteUrl, buildCategoryPath, buildCityPath, buildInstitutePath, slugifySeo } from '../../lib/seoUrls';
-import { clearSeoAdminSession } from '../../lib/seoAdminAccess';
+import { clearSeoAdminSession, seoAdminRequest } from '../../lib/seoAdminAccess';
 
 const emptyEntry: SeoOverride = {
   title: '',
@@ -115,6 +115,17 @@ export const SeoAdminPage: React.FC = () => {
   const [selectedKey, setSelectedKey] = useState('');
   const [search, setSearch] = useState('');
   const [draftConfig, setDraftConfig] = useState<SeoConfig>(() => readSeoDraftConfig());
+  const [liveSha, setLiveSha] = useState('');
+  const [publishing, setPublishing] = useState(false);
+  const [liveCount, setLiveCount] = useState(0);
+  const refreshPublished = async () => {
+    const data = await seoAdminRequest<{ sha: string; config: SeoConfig }>('published');
+    setLiveSha(data.sha);
+    setLiveCount(Object.keys(data.config.entries || {}).length);
+  };
+  useEffect(() => {
+    refreshPublished().catch((error) => setNotice(error instanceof Error ? error.message : 'SEO Worker unavailable.'));
+  }, []);
   const [form, setForm] = useState<SeoOverride>({ ...emptyEntry });
   const [isLoading, setIsLoading] = useState(true);
   const [notice, setNotice] = useState('');
@@ -238,11 +249,43 @@ export const SeoAdminPage: React.FC = () => {
     setForm((previous) => ({ ...previous, [key]: value }));
   };
 
+  const publishCurrent = async () => {
+    if (!selectedKey || !selectedOption || publishing) return;
+    setPublishing(true);
+    try {
+      const state = await seoAdminRequest<{ sha: string; config: SeoConfig }>('published');
+      if (liveSha && state.sha !== liveSha) {
+        setLiveSha(state.sha);
+        setLiveCount(Object.keys(state.config.entries || {}).length);
+        throw new Error('Newer GitHub updates exist. Review and click Publish again.');
+      }
+      const result = await seoAdminRequest<{ commit: string }>('publish', {
+        key: selectedKey, expectedSha: state.sha,
+        entry: { ...form, canonical: form.canonical?.trim() || selectedOption.autoCanonical, faqs: form.faqs || [] },
+      });
+      setDraftConfig(saveSeoDraftEntry(selectedKey, form));
+      await refreshPublished();
+      setNotice('Committed: ' + String(result.commit || '').slice(0, 10) + '. GitHub Actions deployment pending; verify before marking live.');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Publishing failed.');
+    } finally { setPublishing(false); }
+  };
+  const removeLiveCurrent = async () => {
+    if (!selectedKey || publishing || !liveSha || !window.confirm('Remove published SEO for this page?')) return;
+    setPublishing(true);
+    try {
+      const result = await seoAdminRequest<{ commit: string }>('remove', { key: selectedKey, expectedSha: liveSha });
+      await refreshPublished();
+      setNotice('Removed in GitHub commit: ' + String(result.commit || '').slice(0, 10) + '. Deployment pending.');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Removal failed.');
+    } finally { setPublishing(false); }
+  };
   const saveCurrent = () => {
     if (!selectedKey) return;
     const next = saveSeoDraftEntry(selectedKey, form);
     setDraftConfig(next);
-    setNotice('SEO draft saved in this browser. Export the JSON when you are ready to publish.');
+    setNotice('SEO draft saved locally. Use Publish to GitHub when ready.');
   };
 
   const resetCurrent = () => {
@@ -359,7 +402,7 @@ export const SeoAdminPage: React.FC = () => {
               onClick={() => downloadSeoConfig(draftConfig)}
               className="inline-flex items-center gap-2 rounded-xl bg-teal-600 text-white px-4 py-2.5 text-xs font-bold shadow-lg shadow-teal-600/20 hover:bg-teal-700"
             >
-              <Download className="w-4 h-4" /> Export Published JSON
+              <Download className="w-4 h-4" /> Download Draft Backup
             </button>
           </div>
         </div>
@@ -587,7 +630,7 @@ export const SeoAdminPage: React.FC = () => {
                 <section className="rounded-3xl bg-slate-900 text-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <p className="text-sm font-bold">Save this page as a draft</p>
-                    <p className="text-xs text-slate-400 mt-1">Export seo-overrides.json after all edits are complete.</p>
+                    <p className="text-xs text-slate-400 mt-1">Publish to GitHub after review; GitHub Actions deploys automatically.</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button
@@ -596,6 +639,12 @@ export const SeoAdminPage: React.FC = () => {
                       className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-xs font-bold hover:bg-slate-700"
                     >
                       <RefreshCw className="w-4 h-4" /> Use Automatic SEO
+                    </button>
+                    <button type="button" onClick={publishCurrent} disabled={publishing} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-black text-white disabled:opacity-60">
+                      <UploadCloud className="w-4 h-4" /> {publishing ? 'Publishing…' : 'Publish to GitHub'}
+                    </button>
+                    <button type="button" onClick={removeLiveCurrent} disabled={publishing || !liveSha} className="inline-flex items-center gap-2 rounded-xl border border-slate-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-60">
+                      Remove Live Override
                     </button>
                     <button
                       type="button"
@@ -614,9 +663,7 @@ export const SeoAdminPage: React.FC = () => {
         <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5 flex items-start gap-3">
           <UploadCloud className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
           <div className="text-sm text-amber-900 leading-6">
-            <strong>Publishing:</strong> this frontend package does not contain your server-side admin/database source. After editing, export
-            <strong> seo-overrides.json</strong>, replace <strong>public/seo-overrides.json</strong> in the project and deploy/build the site. Once a backend SEO endpoint is available, this same dashboard can save directly to the database.
-          </div>
+            <strong>GitHub Publishing:</strong> {liveCount} SEO override(s) committed. Publish commits only the selected page to GitHub. GitHub Actions then builds and deploys; verify its successful run and public HTML before calling changes live. No JSON download is required.</div>
         </section>
       </main>
     </div>
