@@ -27,6 +27,7 @@ import SEO from '../../components/common/SEO';
 import { absoluteUrl, buildCityPath, buildInstitutePath, extractInstituteIdFromSlug } from '../../lib/seoUrls';
 import { instituteSeoKey, normalizeCanonicalUrl } from '../../lib/seoAdmin';
 import { useSeoOverride } from '../../hooks/useSeoOverride';
+import { buildAutoInstituteSeo, instituteImageAlt } from '../../lib/autoSeo';
 
 type DetailTab = 'Description' | 'Courses' | 'Gallery' | 'Review';
 
@@ -312,15 +313,13 @@ export const StudentInstituteDetailsPage: React.FC = () => {
       ? institute.courses || []
       : institute.courses?.filter((c) => c.category === selectedCourseCategory) || [];
 
-  const automaticSeoTitle = `${institute.name} Coaching in ${institute.address.city || 'India'} - Courses, Fees & Reviews`;
-  const automaticSeoDescription = `${institute.name}${institute.address.area ? ` in ${institute.address.area}` : ''}${
-    institute.address.city ? `, ${institute.address.city}` : ''
-  }. Compare available courses, fees, admission details, contact information and student reviews on Coaching Buddy.`;
-  const finalSeoTitle = seoOverride?.title || automaticSeoTitle;
-  const finalSeoDescription = seoOverride?.description || automaticSeoDescription;
-  const finalCanonicalUrl = normalizeCanonicalUrl(seoOverride?.canonical, buildInstitutePath(institute));
-  const finalH1 = seoOverride?.h1 || institute.name;
-  const finalAboutContent = seoOverride?.intro || institute.longDescription || institute.shortDescription;
+  // Every institute—including new user-created listings—gets SEO defaults.
+  const automaticSeo = buildAutoInstituteSeo(institute);
+  const finalSeoTitle = seoOverride?.title || automaticSeo.title;
+  const finalSeoDescription = seoOverride?.description || automaticSeo.description;
+  const finalCanonicalUrl = normalizeCanonicalUrl(seoOverride?.canonical, automaticSeo.canonicalPath);
+  const finalH1 = seoOverride?.h1 || automaticSeo.h1;
+  const finalAboutContent = seoOverride?.intro || automaticSeo.intro;
   const faqSchema = seoOverride?.faqs?.length
     ? {
         '@context': 'https://schema.org',
@@ -405,7 +404,7 @@ export const StudentInstituteDetailsPage: React.FC = () => {
         <div className="relative h-44 sm:h-72 lg:h-80 bg-slate-900 overflow-hidden">
           <img
             src={getImageURI(institute.images.cover?.[0] || institute.images.banner?.[0])}
-            alt={institute.name}
+            alt={instituteImageAlt(institute, 'cover')}
             className="w-full h-full object-cover opacity-80"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/20" />
@@ -447,7 +446,7 @@ export const StudentInstituteDetailsPage: React.FC = () => {
               <div className="w-20 h-20 rounded-2xl bg-white p-1.5 shadow-xl border border-white shrink-0">
                 <img
                   src={getImageURI(institute.images.logo?.[0])}
-                  alt={institute.name}
+                  alt={instituteImageAlt(institute, 'logo')}
                   className="w-full h-full object-contain rounded-xl"
                 />
               </div>
@@ -517,7 +516,7 @@ export const StudentInstituteDetailsPage: React.FC = () => {
             <div className="w-14 h-14 rounded-2xl bg-white p-1 shadow-md border border-slate-200 shrink-0 -mt-10 z-10">
               <img
                 src={getImageURI(institute.images.logo?.[0])}
-                alt={institute.name}
+                alt={instituteImageAlt(institute, 'logo')}
                 className="w-full h-full object-contain rounded-xl"
               />
             </div>
@@ -828,7 +827,7 @@ export const StudentInstituteDetailsPage: React.FC = () => {
               >
                 <img
                   src={getImageURI(imgUrl)}
-                  alt={`Gallery ${idx + 1}`}
+                  alt={instituteImageAlt(institute, 'gallery', idx + 1)}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
@@ -914,7 +913,7 @@ export const StudentInstituteDetailsPage: React.FC = () => {
             </button>
             <img
               src={selectedLightboxImage}
-              alt="Expanded preview"
+              alt={instituteImageAlt(institute, 'gallery')}
               className="w-full h-auto max-h-[85vh] object-contain rounded-2xl shadow-2xl"
             />
           </div>
