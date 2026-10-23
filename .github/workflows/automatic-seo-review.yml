@@ -1,0 +1,48 @@
+name: Automatic SEO Defaults - Review Only
+
+on:
+  push:
+    branches: [feature/automatic-seo-defaults]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  automatic-seo-check:
+    name: React build and initial HTML SEO smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build existing website without deployment
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+      - name: Validate automatic sitemap SEO generator
+        working-directory: web
+        run: |
+          node --check scripts/generate-auto-seo-html.mjs
+          cp public/sitemap.xml /tmp/cb-real-sitemap.xml
+          cat > public/sitemap.xml <<'XML'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <urlset>
+          <url><loc>https://coachingbuddy.co.in/coaching-institutes/pune</loc></url>
+          <url><loc>https://coachingbuddy.co.in/coaching-institutes/pune/jee</loc></url>
+          <url><loc>https://coachingbuddy.co.in/institute/pune/test-academy--test123</loc></url>
+          </urlset>
+          XML
+          node scripts/generate-auto-seo-html.mjs
+          grep -q 'Best Coaching Institutes in Pune' dist/coaching-institutes/pune/index.html
+          grep -q 'Best Jee Coaching Institutes in Pune' dist/coaching-institutes/pune/jee/index.html
+          grep -q 'Test Academy Coaching in Pune' dist/institute/pune/test-academy--test123/index.html
+          grep -q 'rel="canonical"' dist/institute/pune/test-academy--test123/index.html
+          test ! -e dist/student/login/index.html
+          test ! -e dist/institute/login/index.html
+          cp /tmp/cb-real-sitemap.xml public/sitemap.xml
