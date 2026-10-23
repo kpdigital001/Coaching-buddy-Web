@@ -1,0 +1,48 @@
+name: GitHub-only SEO Review (no deploy)
+on:
+  push:
+    branches: [feature/github-only-seo-publishing]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build original React UI with SEO HTML generation
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+      - name: Validate Worker and SEO generation JavaScript syntax
+        run: |
+          node --check seo-worker/src/index.js
+          node --check seo-worker/scripts/setup-password.mjs
+          node --check web/scripts/generate-seo-pages.mjs
+      - name: Static SEO HTML smoke test (CI only)
+        working-directory: web
+        run: |
+          cp public/seo-overrides.json /tmp/coachingbuddy-seo-original.json
+          cat > public/seo-overrides.json <<'SEO'
+          {"version":1,"generatedAt":"2026-10-23T00:00:00Z","entries":{"city:pune":{"title":"Coaching Institutes in Pune SEO Smoke Test","description":"Test metadata during build","canonical":"https://coachingbuddy.co.in/coaching-institutes/pune","index":true,"faqs":[{"question":"Test question?","answer":"Test answer."}]}}}
+          SEO
+          node scripts/generate-seo-pages.mjs
+          grep -q 'Coaching Institutes in Pune SEO Smoke Test' dist/coaching-institutes/pune/index.html
+          grep -q '"FAQPage"' dist/coaching-institutes/pune/index.html
+          grep -q 'rel="canonical"' dist/coaching-institutes/pune/index.html
+          cp /tmp/coachingbuddy-seo-original.json public/seo-overrides.json
+      - name: Confirm credentials are absent from new SEO app source
+        run: |
+          ! grep -q 'VITE_SEO_ADMIN_PASSWORD_SHA256' web/src/lib/seoAdminAccess.ts
+          ! grep -q 'FALLBACK_SEO_ADMIN_PASSWORD_SHA256' web/src/lib/seoAdminAccess.ts
+          ! test -e seo-worker/.dev.vars
+          ! test -e seo-worker/.env
