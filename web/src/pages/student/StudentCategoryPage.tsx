@@ -22,6 +22,7 @@ import {
 } from '../../lib/seoUrls';
 import { categorySeoKey, citySeoKey, normalizeCanonicalUrl } from '../../lib/seoAdmin';
 import { useSeoOverride } from '../../hooks/useSeoOverride';
+import { buildAutoCitySeo, buildAutoCategorySeo, buildAutoExploreSeo } from '../../lib/autoSeo';
 
 export const StudentCategoryPage: React.FC = () => {
   const { id, citySlug, categorySlug } = useParams<{
@@ -180,25 +181,13 @@ export const StudentCategoryPage: React.FC = () => {
 
   const cityForLinks = activeCity || 'india';
 
-  const seoTitle = isAllCategories
-    ? activeCity
-      ? `Best Coaching Institutes in ${activeCity} - Courses, Fees & Reviews`
-      : 'Explore Coaching Institutes & Exam Categories in India'
-    : activeCity
-      ? `Best ${currentCategory.name} Coaching Institutes in ${activeCity}`
-      : `Best ${currentCategory.name} Coaching Institutes in India`;
-
-  const seoDescription = isAllCategories
-    ? activeCity
-      ? `Explore verified coaching institutes in ${activeCity}. Compare available courses, fees, locations and student reviews on Coaching Buddy.`
-      : 'Explore verified coaching institutes across India by exam category, city, courses, fees and student reviews on Coaching Buddy.'
-    : `Explore verified ${currentCategory.name} coaching institutes${activeCity ? ` in ${activeCity}` : ' across India'}. Compare courses, fees, locations and student reviews.`;
-
-  const canonicalPath = isAllCategories
-    ? activeCity
-      ? buildCityPath(activeCity)
-      : '/explore'
-    : buildCategoryPath(currentCategory.name, activeCity || 'india');
+  // Automatic defaults use live category/city data, including newly created listings.
+  const automaticSeo = isAllCategories
+    ? activeCity ? buildAutoCitySeo(activeCity) : buildAutoExploreSeo()
+    : buildAutoCategorySeo(currentCategory.name, activeCity);
+  const seoTitle = automaticSeo.title;
+  const seoDescription = automaticSeo.description;
+  const canonicalPath = automaticSeo.canonicalPath;
 
   const seoOverrideKey = isAllCategories
     ? activeCity
@@ -209,18 +198,8 @@ export const StudentCategoryPage: React.FC = () => {
   const finalSeoTitle = seoOverride?.title || seoTitle;
   const finalSeoDescription = seoOverride?.description || seoDescription;
   const finalCanonicalUrl = normalizeCanonicalUrl(seoOverride?.canonical, canonicalPath);
-  const automaticH1 = isAllCategories
-    ? activeCity
-      ? `Top Coaching Institutes in ${activeCity}`
-      : 'Explore All Coaching Categories & Institutes'
-    : activeCity
-      ? `Top ${currentCategory.name} Coaching Institutes in ${activeCity}`
-      : `Top Coaching Institutes for ${currentCategory.name}`;
-  const finalH1 = seoOverride?.h1 || automaticH1;
-  const automaticIntro = isAllCategories
-    ? 'Browse verified academies, programs, expert faculties, fees, and authentic student reviews across all competitive exams.'
-    : 'Compare syllabus, classroom programs, faculties, fees, and student reviews across verified coaching centers.';
-  const finalIntro = seoOverride?.intro || automaticIntro;
+  const finalH1 = seoOverride?.h1 || automaticSeo.h1;
+  const finalIntro = seoOverride?.intro || automaticSeo.intro;
   const faqSchema = seoOverride?.faqs?.length
     ? {
         '@context': 'https://schema.org',

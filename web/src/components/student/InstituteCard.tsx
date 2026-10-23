@@ -6,6 +6,7 @@ import { useStudentAuth } from '../../context/StudentAuthContext';
 import { useToast } from '../common/Toast';
 import { getImageURI } from '../../services/studentApi';
 import { buildInstitutePath } from '../../lib/seoUrls';
+import { instituteImageAlt } from '../../lib/autoSeo';
 
 interface InstituteCardProps {
   institute: StudentInstitute;
@@ -53,7 +54,7 @@ export const InstituteCard: React.FC<InstituteCardProps> = ({ institute, horizon
         <div className="sm:w-64 h-48 sm:h-auto relative overflow-hidden shrink-0 bg-slate-100">
           <img
             src={coverImage}
-            alt={institute.name}
+            alt={instituteImageAlt(institute, 'cover')}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
           <button
@@ -127,7 +128,7 @@ export const InstituteCard: React.FC<InstituteCardProps> = ({ institute, horizon
       <div className="relative h-44 sm:h-48 overflow-hidden bg-slate-100">
         <img
           src={coverImage}
-          alt={institute.name}
+          alt={instituteImageAlt(institute, 'cover')}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -152,7 +153,7 @@ export const InstituteCard: React.FC<InstituteCardProps> = ({ institute, horizon
 
         {/* Institute Logo overlapping header */}
         <div className="absolute bottom-3 left-3 w-12 h-12 rounded-2xl bg-white p-1 shadow-md overflow-hidden border border-white">
-          <img src={logoImage} alt="" className="w-full h-full object-contain rounded-xl" />
+          <img src={logoImage} alt={instituteImageAlt(institute, 'logo')} className="w-full h-full object-contain rounded-xl" />
         </div>
       </div>
 
